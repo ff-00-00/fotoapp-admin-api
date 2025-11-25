@@ -1,0 +1,36 @@
+{
+    "name": "adminapp-fotorun-api",
+    "version": "0.1.0",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "node src/server.js",
+        "migrate": "prisma migrate dev --name init",
+        "generate": "prisma generate",
+        "seed": "node seed.mjs",
+        "start": "node src/server.js"
+    },
+    "dependencies": {
+        "@prisma/client": "^6.19.0",
+        "bcrypt": "^5.1.1",
+        "connect-pg-simple": "^9.0.0",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.5",
+        "express": "^4.19.2",
+        "express-session": "^1.17.3",
+        "helmet": "^7.1.0",
+        "morgan": "^1.10.0",
+        "pg": "^8.12.0"
+    },
+    "devDependencies": {
+        "prisma": "^6.19.0"
+    },
+    "prisma": {
+        "schema": "prisma/schema.prisma"
+    },
+    "description": "",
+    "main": "index.js",
+    "keywords": [],
+    "author": "",
+    "license": "ISC"
+}
