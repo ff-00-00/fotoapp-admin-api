@@ -77,4 +77,6 @@ app.get('/api/health', (_, res) => res.json({ ok: true }));
 
 // Arranque
 const PORT = process.env.PORT || 8081;
-app.listen(PORT, () => console.log(`API OK en http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log("Server running on port", PORT);
+});
