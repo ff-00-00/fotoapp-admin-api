@@ -10,6 +10,10 @@ import authRoutes from './routes/auth.js';
 import carrerasRoutes from './routes/carreras.js';
 import fotografosRoutes from "./routes/fotografos.js";
 
+// Permitir que JSON.stringify maneje BigInt (los pasa a string)
+BigInt.prototype.toJSON = function () {
+  return this.toString();
+};
 
 
 const app = express();
