@@ -9,6 +9,8 @@ import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth.js';
 import carrerasRoutes from './routes/carreras.js';
 import fotografosRoutes from "./routes/fotografos.js";
+import toolsRoutes from "./routes/tools.js";
+
 
 // Permitir que JSON.stringify maneje BigInt (los pasa a string)
 BigInt.prototype.toJSON = function () {
@@ -18,6 +20,16 @@ BigInt.prototype.toJSON = function () {
 
 const app = express();
 const prisma = new PrismaClient();
+
+// Hacer que JSON.stringify soporte BigInt (se exporta como string)
+if (typeof BigInt !== "undefined") {
+  // eslint-disable-next-line no-extend-native
+  BigInt.prototype.toJSON = function () {
+    return this.toString();
+  };
+}
+
+
 const PgSession = pgSession(session);
 
 // --- DEV BYPASS AUTH: temporal, reversible ---
@@ -76,7 +88,7 @@ app.use(session({
 app.use('/api/auth', authRoutes(prisma));
 app.use('/api/carreras', carrerasRoutes(prisma));
 app.use("/api/fotografos", fotografosRoutes(prisma));
-
+app.use('/api/admin', toolsRoutes(prisma)); 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
 // Arranque
