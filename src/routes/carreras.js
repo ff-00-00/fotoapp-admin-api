@@ -106,6 +106,8 @@ export default function carrerasRoutes(prisma) {
                 }
             }
 
+
+
             // helpers iguales a los del detalle
             const asBig = (x) =>
                 typeof x === 'bigint' ? x : BigInt(x || 0);
@@ -187,12 +189,7 @@ export default function carrerasRoutes(prisma) {
                 orderBy: { id: 'asc' },
             });
 
-            // fotógrafos de esta carrera
-            const fotografos = await prisma.carreraFotografo.findMany({
-                where: { carreraId: id },
-                orderBy: { id: 'asc' },
-            });
-
+            // gastos específicos de esta carrera
             const gastosEspecificos = await prisma.gastoEspecifico.findMany({
                 where: { carreraId: id },
                 orderBy: { id: 'asc' },
@@ -200,8 +197,17 @@ export default function carrerasRoutes(prisma) {
 
             let costoGastosEspecificos = 0n;
             for (const g of gastosEspecificos) {
+                // si tu modelo tiene "montoCents"
                 costoGastosEspecificos += toBigInt(g.montoCents ?? 0);
             }
+
+
+            // fotógrafos de esta carrera
+            const fotografos = await prisma.carreraFotografo.findMany({
+                where: { carreraId: id },
+                orderBy: { id: 'asc' },
+            });
+
 
 
             // ==== Cálculos ====
@@ -269,6 +275,7 @@ export default function carrerasRoutes(prisma) {
                 costoGastosEspecificos;
 
 
+
             const gastosTotalesUSDCents = costoVentaTiposUSDCents;
 
             const resultadoFinalARSCents = ingresosARS - gastosTotalesARSCents;
@@ -284,6 +291,7 @@ export default function carrerasRoutes(prisma) {
                     ...carrera,
                     ventaTipos,
                     fotografos,
+                    gastosEspecificos,
                     calculo: {
                         ingresosARS,
                         ingresosUSD,
