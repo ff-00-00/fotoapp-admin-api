@@ -193,6 +193,17 @@ export default function carrerasRoutes(prisma) {
                 orderBy: { id: 'asc' },
             });
 
+            const gastosEspecificos = await prisma.gastoEspecifico.findMany({
+                where: { carreraId: id },
+                orderBy: { id: 'asc' },
+            });
+
+            let costoGastosEspecificos = 0n;
+            for (const g of gastosEspecificos) {
+                costoGastosEspecificos += toBigInt(g.montoCents ?? 0);
+            }
+
+
             // ==== Cálculos ====
             let ingresosARS = 0n;
             let ingresosUSD = 0n;
@@ -254,7 +265,9 @@ export default function carrerasRoutes(prisma) {
                 costoIVA +
                 costoProv +
                 costoDebCred +
-                costoVentaTiposARSCents;
+                costoVentaTiposARSCents +
+                costoGastosEspecificos;
+
 
             const gastosTotalesUSDCents = costoVentaTiposUSDCents;
 
@@ -286,6 +299,7 @@ export default function carrerasRoutes(prisma) {
                         // nuevo detalle por moneda
                         costoVentaTiposARSCents,
                         costoVentaTiposUSDCents,
+                        costoGastosEspecificos,
                         gastosTotalesARSCents,
                         gastosTotalesUSDCents,
                         resultadoFinalARSCents,
@@ -447,6 +461,42 @@ export default function carrerasRoutes(prisma) {
     });
 
 
+    r.put('/:id/gastos-especificos', async (req, res) => {
+        try {
+            const carreraId = Number(req.params.id);
+            if (!Number.isFinite(carreraId)) {
+                return res.status(400).json({ error: 'id inválido' });
+            }
+
+            const { items } = req.body ?? {};
+            if (!Array.isArray(items)) {
+                return res.status(400).json({ error: 'items debe ser un array' });
+            }
+
+            // borrar todos los gastos específicos actuales de esa carrera
+            await prisma.gastoEspecifico.deleteMany({ where: { carreraId } });
+
+            const toCreate = items
+                .filter((row) => String(row.nombre || '').trim() !== '')
+                .map((row) => ({
+                    carreraId,
+                    nombre: String(row.nombre || '').trim(),
+                    tipo: (row.tipo || null),
+                    montoCents: parseMoneyToCents(row.monto || '0'),
+                    pagado: !!row.pagado,
+                    facturado: !!row.facturado,
+                }));
+
+            if (toCreate.length) {
+                await prisma.gastoEspecifico.createMany({ data: toCreate });
+            }
+
+            res.json({ ok: true, created: toCreate.length });
+        } catch (err) {
+            console.error('ERROR PUT /carreras/:id/gastos-especificos', err);
+            res.status(500).json({ error: 'Error al guardar gastos específicos' });
+        }
+    });
 
 
 

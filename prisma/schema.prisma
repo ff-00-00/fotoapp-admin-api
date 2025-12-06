@@ -105,6 +105,8 @@ model Carrera {
   registros     RegistroFotografo[]
   preventas     CarreraPreventa[]
   transacciones Transaccion[]
+  gastosEspecificos GastoEspecifico[]
+
 }
 
 model CarreraVentaTipo {
@@ -122,6 +124,23 @@ model CarreraVentaTipo {
 
   @@index([carreraId])
   @@map("carrera_venta_tipo")
+}
+
+model GastoEspecifico {
+  id         Int      @id @default(autoincrement())
+  carreraId  Int
+  carrera    Carrera  @relation(fields: [carreraId], references: [id], onDelete: Cascade)
+
+  nombre     String
+  tipo       String?
+  montoCents BigInt   @default(0) @db.BigInt
+  pagado     Boolean  @default(false)
+  facturado  Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([carreraId])
 }
 
 
