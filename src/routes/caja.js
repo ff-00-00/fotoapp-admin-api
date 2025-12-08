@@ -37,6 +37,9 @@ function parseDateISO(d) {
     return isNaN(dt) ? null : dt;
 }
 
+const CAJA_TIPO_ID = "caja_global";
+
+
 /* ========= Router caja ========= */
 export default function cajaRoutes(prisma) {
     const r = Router();
@@ -106,41 +109,62 @@ export default function cajaRoutes(prisma) {
         try {
             const {
                 fecha,
-                tipoId,
+                tipoOperacion,
                 moneda,
                 monto,
-                subtipo,
+                categoria,
+                cuentaSalida,
+                cuentaEntrada,
                 estado,
                 facturaEstado,
                 nota,
             } = req.body ?? {};
 
+            // fecha
             const f = parseDateISO(fecha);
-            if (!f) return res.status(400).json({ error: "fecha requerida (YYYY-MM-DD)" });
+            if (!f) {
+                return res.status(400).json({ error: "fecha requerida (YYYY-MM-DD)" });
+            }
 
-            if (!tipoId) return res.status(400).json({ error: "tipoId requerido" });
+            // tipoOperacion
+            const tipoOp = String(tipoOperacion || "egreso").toLowerCase();
+            const TIPOS_VALIDOS = ["ingreso", "egreso", "transferencia", "inicial"];
+            if (!TIPOS_VALIDOS.includes(tipoOp)) {
+                return res.status(400).json({ error: "tipoOperacion inválido" });
+            }
 
-            // buscamos el tipo para copiar el grupo (fijo / variable / etc.)
-            const tipo = await prisma.tipoMovimiento.findUnique({
-                where: { id: String(tipoId) },
-            });
-            if (!tipo) return res.status(400).json({ error: "tipoId inválido" });
-
+            // moneda
             const monedaNorm = String(moneda || "ARS").toUpperCase();
+
+            // aseguramos que exista un TipoMovimiento genérico para caja
+            const tipoCaja = await prisma.tipoMovimiento.upsert({
+                where: { id: CAJA_TIPO_ID },
+                update: {},
+                create: {
+                    id: CAJA_TIPO_ID,
+                    nombre: "Caja global",
+                    grupo: "global",
+                    alcance: "global",
+                },
+            });
 
             const data = {
                 fecha: f,
-                carreraId: null,        // GLOBAL
-                tipoId: tipo.id,
-                grupo: tipo.grupo,
+                carreraId: null,                 // GLOBAL
+                tipoId: tipoCaja.id,
+                grupo: tipoCaja.grupo,
                 montoCents: parseMoneyToCents(monto),
                 moneda: monedaNorm,
+
                 nota: nota ? String(nota).trim() : null,
-                subtipo: subtipo ? String(subtipo).trim() : null,
+
+                tipoOperacion: tipoOp,
+                categoria: categoria ? String(categoria).trim() : null,
+                cuentaSalida: cuentaSalida ? String(cuentaSalida).trim() : null,
+                cuentaEntrada: cuentaEntrada ? String(cuentaEntrada).trim() : null,
+
                 estado: String(estado || "pendiente"),
                 facturaEstado: String(facturaEstado || "no_corresponde"),
-                cuentaDesde: null,
-                cuentaHasta: null,
             };
 
             const mov = await prisma.transaccion.create({ data });
@@ -150,6 +174,7 @@ export default function cajaRoutes(prisma) {
             res.status(500).json({ error: "Error al crear movimiento de caja" });
         }
     });
+
 
     // PUT /api/caja/movimientos/:id → editar SOLO globales
     r.put("/movimientos/:id", async (req, res) => {
@@ -170,36 +195,56 @@ export default function cajaRoutes(prisma) {
 
             if (payload.fecha !== undefined) {
                 const f = parseDateISO(payload.fecha);
-                if (!f) return res.status(400).json({ error: "fecha debe ser YYYY-MM-DD" });
+                if (!f) {
+                    return res.status(400).json({ error: "fecha debe ser YYYY-MM-DD" });
+                }
                 data.fecha = f;
             }
+
             if (payload.moneda !== undefined) {
                 data.moneda = String(payload.moneda || "ARS").toUpperCase();
             }
+
             if (payload.monto !== undefined) {
                 data.montoCents = parseMoneyToCents(payload.monto);
             }
-            if (payload.subtipo !== undefined) {
-                data.subtipo = String(payload.subtipo || "").trim() || null;
+
+            if (payload.tipoOperacion !== undefined) {
+                const tipoOp = String(payload.tipoOperacion || "").toLowerCase();
+                const TIPOS_VALIDOS = ["ingreso", "egreso", "transferencia", "inicial"];
+                if (!TIPOS_VALIDOS.includes(tipoOp)) {
+                    return res.status(400).json({ error: "tipoOperacion inválido" });
+                }
+                data.tipoOperacion = tipoOp;
             }
+
+            if (payload.categoria !== undefined) {
+                data.categoria =
+                    String(payload.categoria || "").trim() || null;
+            }
+
+            if (payload.cuentaSalida !== undefined) {
+                data.cuentaSalida =
+                    String(payload.cuentaSalida || "").trim() || null;
+            }
+
+            if (payload.cuentaEntrada !== undefined) {
+                data.cuentaEntrada =
+                    String(payload.cuentaEntrada || "").trim() || null;
+            }
+
             if (payload.estado !== undefined) {
                 data.estado = String(payload.estado || "pendiente");
             }
+
             if (payload.facturaEstado !== undefined) {
-                data.facturaEstado = String(payload.facturaEstado || "no_corresponde");
-            }
-            if (payload.nota !== undefined) {
-                data.nota = String(payload.nota || "").trim() || null;
+                data.facturaEstado = String(
+                    payload.facturaEstado || "no_corresponde"
+                );
             }
 
-            // cambiar tipoId (opcional)
-            if (payload.tipoId !== undefined) {
-                const tipo = await prisma.tipoMovimiento.findUnique({
-                    where: { id: String(payload.tipoId) },
-                });
-                if (!tipo) return res.status(400).json({ error: "tipoId inválido" });
-                data.tipoId = tipo.id;
-                data.grupo = tipo.grupo;
+            if (payload.nota !== undefined) {
+                data.nota = String(payload.nota || "").trim() || null;
             }
 
             if (!Object.keys(data).length) {
@@ -210,12 +255,14 @@ export default function cajaRoutes(prisma) {
                 where: { id },
                 data,
             });
+
             res.json(serializeBigInt(upd));
         } catch (err) {
             console.error("ERROR PUT /caja/movimientos/:id", err);
             res.status(500).json({ error: "Error al actualizar movimiento de caja" });
         }
     });
+
 
     // DELETE /api/caja/movimientos/:id → borrar SOLO globales
     r.delete("/movimientos/:id", async (req, res) => {
