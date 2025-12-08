@@ -229,22 +229,34 @@ model Transaccion {
   montoCents BigInt   @db.BigInt
   moneda     Moneda
 
-  nota       String?
+  nota           String?
 
-  subtipo        String?     
+  // CAJA / MOVIMIENTOS GLOBALES
+  tipoOperacion  String   @default("egreso")      // ingreso | egreso | transferencia | inicial
+  categoria      String?                          // hosting, adelanto, etc.
+  
+  cuentaSalidaId  Int?
+  cuentaEntradaId Int?
 
-  estado         String       @default("pendiente")
+  cuentaSalida   Cuenta? @relation("CuentaSalida",  fields: [cuentaSalidaId],  references: [id])
+  cuentaEntrada  Cuenta? @relation("CuentaEntrada", fields: [cuentaEntradaId], references: [id])
 
-  facturaEstado  String       @default("no_corresponde")
-
-  // cuentas de caja/banco, por ahora como texto libre
-  // (más adelante se pueden reemplazar por FK a una tabla Cuentas)
-  cuentaDesde    String?
-  cuentaHasta    String?
+  estado         String   @default("pendiente")   // pendiente | pagado | no_aplica | anulado
+  facturaEstado  String   @default("no_corresponde")
 
   carrera Carrera?       @relation(fields: [carreraId], references: [id], onDelete: Cascade)
   tipo    TipoMovimiento @relation(fields: [tipoId], references: [id])
 }
+
+model Cuenta {
+  id                Int           @id @default(autoincrement())
+  nombre            String        @unique
+  activa            Boolean       @default(true)
+
+  movimientosSalida Transaccion[] @relation("CuentaSalida")
+  movimientosEntrada Transaccion[] @relation("CuentaEntrada")
+}
+
 
 model ParametroFiscal {
   id     Int       @id @default(autoincrement())

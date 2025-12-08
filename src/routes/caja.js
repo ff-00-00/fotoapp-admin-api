@@ -44,14 +44,40 @@ const CAJA_TIPO_ID = "caja_global";
 export default function cajaRoutes(prisma) {
     const r = Router();
 
-    // defaults para tipos de movimiento GLOBAL (caja)
-    const GLOBAL_TIPOS_DEFAULTS = [
-        { id: 'gasto_fijo', nombre: 'Gasto fijo', grupo: 'fijo', alcance: 'global' },
-        { id: 'gasto_operativo', nombre: 'Gasto operativo', grupo: 'variable', alcance: 'global' },
-        { id: 'inversion', nombre: 'Inversión', grupo: 'inversion', alcance: 'global' },
-        { id: 'adelanto_socio', nombre: 'Adelanto a socio', grupo: 'deuda', alcance: 'global' },
-        { id: 'deuda', nombre: 'Deuda / préstamo', grupo: 'deuda', alcance: 'global' },
-    ];
+    // GET /api/caja/cuentas
+    r.get("/cuentas", async (_req, res) => {
+        try {
+            const rows = await prisma.cuenta.findMany({
+                where: { activa: true },
+                orderBy: { nombre: "asc" },
+            });
+            res.json(serializeBigInt(rows));
+        } catch (err) {
+            console.error("ERROR GET /caja/cuentas", err);
+            res.status(500).json({ error: "Error al obtener cuentas" });
+        }
+    });
+
+    // POST /api/caja/cuentas
+    r.post("/cuentas", async (req, res) => {
+        try {
+            const { nombre } = req.body ?? {};
+            const clean = String(nombre || "").trim();
+            if (!clean) return res.status(400).json({ error: "nombre requerido" });
+
+            const cuenta = await prisma.cuenta.upsert({
+                where: { nombre: clean },
+                update: { activa: true },
+                create: { nombre: clean },
+            });
+
+            res.json(serializeBigInt(cuenta));
+        } catch (err) {
+            console.error("ERROR POST /caja/cuentas", err);
+            res.status(500).json({ error: "Error al crear cuenta" });
+        }
+    });
+
 
     // GET /api/caja/tipos → tipos de movimiento GLOBAL
     r.get("/tipos", async (_req, res) => {
@@ -89,13 +115,15 @@ export default function cajaRoutes(prisma) {
     });
 
 
-    // GET /api/caja/movimientos → solo movimientos GLOBAL (carreraId = null)
     r.get("/movimientos", async (_req, res) => {
         try {
             const rows = await prisma.transaccion.findMany({
                 where: { carreraId: null },
                 orderBy: [{ fecha: "desc" }, { id: "desc" }],
-                include: { tipo: true },
+                include: {
+                    cuentaSalida: true,
+                    cuentaEntrada: true,
+                },
             });
             res.json(serializeBigInt(rows));
         } catch (err) {
@@ -103,6 +131,7 @@ export default function cajaRoutes(prisma) {
             res.status(500).json({ error: "Error al obtener movimientos de caja" });
         }
     });
+
 
     // POST /api/caja/movimientos → alta movimiento GLOBAL
     r.post("/movimientos", async (req, res) => {
@@ -113,44 +142,44 @@ export default function cajaRoutes(prisma) {
                 moneda,
                 monto,
                 categoria,
-                cuentaSalida,
-                cuentaEntrada,
+                cuentaSalidaId,
+                cuentaEntradaId,
                 estado,
                 facturaEstado,
                 nota,
             } = req.body ?? {};
 
-            // fecha
             const f = parseDateISO(fecha);
-            if (!f) {
-                return res.status(400).json({ error: "fecha requerida (YYYY-MM-DD)" });
-            }
+            if (!f) return res.status(400).json({ error: "fecha requerida (YYYY-MM-DD)" });
 
-            // tipoOperacion
             const tipoOp = String(tipoOperacion || "egreso").toLowerCase();
             const TIPOS_VALIDOS = ["ingreso", "egreso", "transferencia", "inicial"];
             if (!TIPOS_VALIDOS.includes(tipoOp)) {
                 return res.status(400).json({ error: "tipoOperacion inválido" });
             }
 
-            // moneda
             const monedaNorm = String(moneda || "ARS").toUpperCase();
 
-            // aseguramos que exista un TipoMovimiento genérico para caja
             const tipoCaja = await prisma.tipoMovimiento.upsert({
-                where: { id: CAJA_TIPO_ID },
+                where: { id: "caja_global" },
                 update: {},
                 create: {
-                    id: CAJA_TIPO_ID,
+                    id: "caja_global",
                     nombre: "Caja global",
                     grupo: "global",
                     alcance: "global",
                 },
             });
 
+            let salidaId = cuentaSalidaId ? Number(cuentaSalidaId) : null;
+            if (!Number.isFinite(salidaId)) salidaId = null;
+
+            let entradaId = cuentaEntradaId ? Number(cuentaEntradaId) : null;
+            if (!Number.isFinite(entradaId)) entradaId = null;
+
             const data = {
                 fecha: f,
-                carreraId: null,                 // GLOBAL
+                carreraId: null,
                 tipoId: tipoCaja.id,
                 grupo: tipoCaja.grupo,
                 montoCents: parseMoneyToCents(monto),
@@ -160,8 +189,8 @@ export default function cajaRoutes(prisma) {
 
                 tipoOperacion: tipoOp,
                 categoria: categoria ? String(categoria).trim() : null,
-                cuentaSalida: cuentaSalida ? String(cuentaSalida).trim() : null,
-                cuentaEntrada: cuentaEntrada ? String(cuentaEntrada).trim() : null,
+                cuentaSalidaId: salidaId,
+                cuentaEntradaId: entradaId,
 
                 estado: String(estado || "pendiente"),
                 facturaEstado: String(facturaEstado || "no_corresponde"),
@@ -174,6 +203,7 @@ export default function cajaRoutes(prisma) {
             res.status(500).json({ error: "Error al crear movimiento de caja" });
         }
     });
+
 
 
     // PUT /api/caja/movimientos/:id → editar SOLO globales
