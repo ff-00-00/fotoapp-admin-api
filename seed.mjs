@@ -23,7 +23,13 @@ const tiposMovimiento = [
   { id: 'iva', nombre: 'IVA', grupo: 'variable', alcance: 'carrera' },
   { id: 'comision_proveedor', nombre: 'Comisión Proveedor', grupo: 'variable', alcance: 'carrera' },
   { id: 'comision_org_pre', nombre: 'Comisión Organizador (Preventa)', grupo: 'variable', alcance: 'carrera' },
-  { id: 'comision_org_post', nombre: 'Comisión Organizador (Post)', grupo: 'variable', alcance: 'carrera' }
+  { id: 'comision_org_post', nombre: 'Comisión Organizador (Post)', grupo: 'variable', alcance: 'carrera' },
+  // NUEVOS - caja / global
+  { id: 'gasto_fijo',      nombre: 'Gasto fijo',        grupo: 'fijo',      alcance: 'global' },
+  { id: 'gasto_operativo', nombre: 'Gasto operativo',   grupo: 'variable',  alcance: 'global' },
+  { id: 'inversion',       nombre: 'Inversión',         grupo: 'inversion', alcance: 'global' },
+  { id: 'adelanto_socio',  nombre: 'Adelanto a socio',  grupo: 'deuda',     alcance: 'global' },
+  { id: 'deuda',           nombre: 'Deuda / préstamo',  grupo: 'deuda',     alcance: 'global' }
 ];
 
 async function run() {

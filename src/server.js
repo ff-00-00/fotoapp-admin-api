@@ -10,6 +10,8 @@ import authRoutes from './routes/auth.js';
 import carrerasRoutes from './routes/carreras.js';
 import fotografosRoutes from "./routes/fotografos.js";
 import toolsRoutes from "./routes/tools.js";
+import cajaRoutes from "./routes/caja.js";
+
 
 
 // Permitir que JSON.stringify maneje BigInt (los pasa a string)
@@ -88,7 +90,8 @@ app.use(session({
 app.use('/api/auth', authRoutes(prisma));
 app.use('/api/carreras', carrerasRoutes(prisma));
 app.use("/api/fotografos", fotografosRoutes(prisma));
-app.use('/api/admin', toolsRoutes(prisma)); 
+app.use('/api/admin', toolsRoutes(prisma));  
+app.use('/api/caja', cajaRoutes(prisma));
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
 // Arranque

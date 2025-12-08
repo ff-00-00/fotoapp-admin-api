@@ -11,7 +11,12 @@ datasource db {
 enum Moneda {
   ARS
   USD
+  EUR
+  BTC
+  ETH
+  USDT
 }
+
 
 enum TipoCarrera {
   RUNNING
@@ -108,6 +113,10 @@ model Carrera {
   gastosEspecificos GastoEspecifico[]
 
 }
+
+
+
+
 
 model CarreraVentaTipo {
   id          Int        @id @default(autoincrement())
@@ -211,12 +220,27 @@ model TipoMovimiento {
 model Transaccion {
   id         Int      @id @default(autoincrement())
   fecha      DateTime @default(now())
+
   carreraId  Int?
+
   tipoId     String
-  grupo      String
+  grupo      String          // se copia del tipo en el momento de crear
+
   montoCents BigInt   @db.BigInt
   moneda     Moneda
+
   nota       String?
+
+  subtipo        String?     
+
+  estado         String       @default("pendiente")
+
+  facturaEstado  String       @default("no_corresponde")
+
+  // cuentas de caja/banco, por ahora como texto libre
+  // (más adelante se pueden reemplazar por FK a una tabla Cuentas)
+  cuentaDesde    String?
+  cuentaHasta    String?
 
   carrera Carrera?       @relation(fields: [carreraId], references: [id], onDelete: Cascade)
   tipo    TipoMovimiento @relation(fields: [tipoId], references: [id])
