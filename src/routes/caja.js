@@ -41,19 +41,50 @@ function parseDateISO(d) {
 export default function cajaRoutes(prisma) {
     const r = Router();
 
+    // defaults para tipos de movimiento GLOBAL (caja)
+    const GLOBAL_TIPOS_DEFAULTS = [
+        { id: 'gasto_fijo', nombre: 'Gasto fijo', grupo: 'fijo', alcance: 'global' },
+        { id: 'gasto_operativo', nombre: 'Gasto operativo', grupo: 'variable', alcance: 'global' },
+        { id: 'inversion', nombre: 'Inversión', grupo: 'inversion', alcance: 'global' },
+        { id: 'adelanto_socio', nombre: 'Adelanto a socio', grupo: 'deuda', alcance: 'global' },
+        { id: 'deuda', nombre: 'Deuda / préstamo', grupo: 'deuda', alcance: 'global' },
+    ];
+
     // GET /api/caja/tipos → tipos de movimiento GLOBAL
     r.get("/tipos", async (_req, res) => {
         try {
-            const tipos = await prisma.tipoMovimiento.findMany({
+            let tipos = await prisma.tipoMovimiento.findMany({
                 where: { alcance: "global" },
                 orderBy: { nombre: "asc" },
             });
+
+            // si no hay ninguno, los creamos on-the-fly
+            if (!tipos.length) {
+                for (const t of GLOBAL_TIPOS_DEFAULTS) {
+                    await prisma.tipoMovimiento.upsert({
+                        where: { id: t.id },
+                        update: {
+                            nombre: t.nombre,
+                            grupo: t.grupo,
+                            alcance: t.alcance,
+                        },
+                        create: t,
+                    });
+                }
+
+                tipos = await prisma.tipoMovimiento.findMany({
+                    where: { alcance: "global" },
+                    orderBy: { nombre: "asc" },
+                });
+            }
+
             res.json(serializeBigInt(tipos));
         } catch (err) {
             console.error("ERROR GET /caja/tipos", err);
             res.status(500).json({ error: "Error al obtener tipos de movimiento globales" });
         }
     });
+
 
     // GET /api/caja/movimientos → solo movimientos GLOBAL (carreraId = null)
     r.get("/movimientos", async (_req, res) => {
